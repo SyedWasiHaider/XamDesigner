@@ -4,8 +4,8 @@ using Xamarin.Forms;
 namespace XamDesigner
 {
 	public class SlidingTrayButton : Button {
-		public SlidingTrayButton( String elementType, string fullyQualifiedAssName ) {
-			Text = elementType;
+		public SlidingTrayButton( String optionName) {
+			Text = optionName;
 		}
 	}
 }

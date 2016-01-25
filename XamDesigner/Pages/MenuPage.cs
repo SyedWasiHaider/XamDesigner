@@ -20,9 +20,9 @@ namespace XamDesigner
 				Padding = new Thickness ( 0, Device.OnPlatform<int>( 20, 0, 0 ), 0, 0 ),
 			};
 
-			foreach(var typeSet in dict){
-				layout.Children.Add (new SlidingTrayButton (typeSet.Key, typeSet.Value) { Command = getCommand(typeSet.Value)});
-			}
+			layout.Children.Add (new SlidingTrayButton ("New Project"));
+			layout.Children.Add (new SlidingTrayButton ("New Page"));
+			layout.Children.Add (new SlidingTrayButton ("Save Project"));
 
 			Content = layout;
 			Title = "Controls";

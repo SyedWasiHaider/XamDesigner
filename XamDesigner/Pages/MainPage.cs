@@ -2,19 +2,21 @@
 
 using Xamarin.Forms;
 using System.Diagnostics;
+using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Collections;
 
 namespace XamDesigner
 {
-	public class MainPage : ContentView
+	public class MainPage : ContentPage
 	{
-
+		[FlagsAttribute] 
 		enum ACTION {
-			ADD, MOVE, RESIZE, COLOR, DELETE, MODE
+			ADD = 0, MOVE=1, RESIZE=2, FREEFORM=4 ,COLOR=8, DELETE=16, MODE = 32
 		}
 
-		public delegate void OptionDelegate();
 		MR.Gestures.AbsoluteLayout layout = null;
 		string activeType;
 		Dictionary<string,string> dict;
@@ -23,65 +25,87 @@ namespace XamDesigner
 		MR.Gestures.Grid MenuGrid;
 		bool menuVisible = false;
 		ACTION currAction = ACTION.ADD;
-		string [] options = new string[] { "Add", "Move", "Resize", "Colors", "Delete", "Change Mode" };
+		string [] options = new string[] { "Add", "Move", "Resize", "Free Form", "Colors", "Delete", "Change Mode" };
 		Color tapOptionColor = Color.FromRgb (17, 24, 31);
 		Color unTapOptionColor = Color.FromRgb (20, 60, 80);
 
-		OptionDelegate[] delegates;
+		XamDesigner.EnumerableExtensions.GenericDelegate<object>[] optionDelegates;
 
 		public MainPage ()
 		{
 		}
 
 		bool stupid = false;
+
+		private async Task StupidestThingEver(){
+			await Task.Delay (500);
+			Setup ();
+			AddMenu ();
+		}
+
 		protected override void OnSizeAllocated (double width, double height)
 		{
 			base.OnSizeAllocated (width, height);
-
 			if (!stupid) {
 				stupid = true;
-				Setup ();
-				AddMenu ();
+				StupidestThingEver ();
 			}
 		}
 
 		public void Setup(){
 			dict = App.SupportedTypes;
-			delegates = new OptionDelegate[] {
+			optionDelegates = new XamDesigner.EnumerableExtensions.GenericDelegate<object>[] {
 				async delegate {
 					currAction = ACTION.ADD;
 					var action = await DisplayActionSheet ("What control?", "Cancel", null, dict.Keys.ToArray<string>());
-					if (dict.Keys.Contains(action)){
+					if (action != null && dict.Keys.Contains(action)){
 						activeType = dict[action];
 					}
+					TogglePreviewEdit();
 				},
 				delegate {
 					currAction = ACTION.MOVE;
+					TogglePreviewEdit();
 				},
 				delegate {
 					currAction = ACTION.RESIZE;
+					TogglePreviewEdit();
+				},
+				async delegate {
+					currAction = ACTION.FREEFORM;
+					var action = await DisplayActionSheet ("What control?", "Cancel", null, dict.Keys.ToArray<string>());
+					if (action != null && dict.Keys.Contains(action)){
+						activeType = dict[action];
+					}
+					TogglePreviewEdit();
 				},
 				delegate {
 					currAction = ACTION.COLOR;
+					TogglePreviewEdit();
 				},
 				delegate {
 					currAction = ACTION.DELETE;
+					TogglePreviewEdit();
 				},
 				delegate {
 					currAction = ACTION.MODE;
-					editMode = !editMode;
-					Title = editMode ? "Edit Mode" : "Preview Mode";
+					TogglePreviewEdit(false);
 				}
 			};
 
 			activeType = typeof(Button).AssemblyQualifiedName;
 			layout = new MR.Gestures.AbsoluteLayout  {};
 			layout.Tapped += HandleTapOnLayout;
-
+			layout.LongPressing += Layout_LongPressed;
 
 			double diffY = 0;
 			layout.Pinching += (sweet, cool) => {
-				if (editMode && activeView!=null && currAction == ACTION.RESIZE){
+
+				if (menuVisible){
+					ToggleMenu();
+				}
+
+				if (editMode && activeView!=null && (currAction == ACTION.RESIZE || currAction == ACTION.FREEFORM)){
 					Debug.WriteLine("hey hey hey" + activeView.Bounds.Center);
 					var actualView = activeView.Children.FirstOrDefault();
 					var finger1 = cool.Touches[0];
@@ -131,6 +155,27 @@ namespace XamDesigner
 			Content = layout;
 		}
 
+		void Layout_LongPressed (object sender, MR.Gestures.LongPressEventArgs e)
+		{
+			if (editMode && currAction == ACTION.FREEFORM) {
+
+				var x = e.Center.X;
+				var y = e.Center.Y;
+				var children = layout.Children;
+				foreach(var item in children){
+					if (item.GetType() == typeof(MR.Gestures.StackLayout) && item.Id == activeView.Id){
+						if (item.Bounds.Contains(x,y)){
+							layout.LowerChild (item);
+							Debug.WriteLine ("Child lowered " + item.Id);
+							break;
+						}
+				}
+			}
+			
+
+		}
+		}
+
 		private void AddMenu(){
 			int numButtons = options.Count();
 
@@ -166,6 +211,30 @@ namespace XamDesigner
 
 		}
 
+
+		public void TogglePreviewEdit(bool forceEdit = true){
+			editMode = !editMode || forceEdit;
+			Title = editMode ? "Edit Mode" : "Preview Mode";
+			if (!editMode){
+				layout.Children.DoForEach (delegate (object layout) {
+					var element = (layout as StackLayout).Children [0];
+					if (element.GetType() == typeof(Entry)){
+						(element as Entry).IsEnabled = true;
+					}
+				}, typeof(MR.Gestures.StackLayout));
+				ToggleEffect ();
+			}else{
+				layout.Children.DoForEach (delegate (object layout) {
+					var element = (layout as StackLayout).Children [0];
+					if (element.GetType() == typeof(Entry)){
+						(element as Entry).IsEnabled = false;
+					}
+				}, typeof(MR.Gestures.StackLayout));
+			}
+		}
+
+
+
 		public void DeleteControl(MR.Gestures.TapEventArgs e = null, View childToDelete = null){
 
 
@@ -179,6 +248,14 @@ namespace XamDesigner
 						break;
 					}
 				}
+				if (childToDelete == null) {
+					return;
+				}
+			}
+
+			if (childToDelete.Id != activeView.Id) {
+				SetActiveView (activeView);
+				return;
 			}
 
 			if (childToDelete != null) {
@@ -186,11 +263,39 @@ namespace XamDesigner
 			}
 		}
 
+		public void ColorControl(MR.Gestures.TapEventArgs e = null, View childToColor = null){
+
+			if (e != null) {
+				var x = e.Center.X;
+				var y = e.Center.Y;
+				var children = layout.Children;
+				foreach (var child in children) {
+					if (child.Bounds.Contains (x, y) && child.GetType() == typeof(MR.Gestures.StackLayout)) {
+						SetActiveView (child as StackLayout);
+						childToColor = (child as StackLayout).Children [0];
+						break;
+					}
+				}
+			}
+
+			if (childToColor != null) {
+				var properties = childToColor.GetType ().GetRuntimeProperties ();
+				foreach (var property in properties) {
+					var ran = new Random ();
+					if (property.PropertyType == typeof(Color))
+						property.SetValue (childToColor, Color.FromRgb (
+							(byte)(ran.NextDouble () * 255), 
+							(byte)(ran.NextDouble () * 255),
+							(byte)(ran.NextDouble () * 255)), null);
+				}
+			}
+		}
+
 		public void AddControl(MR.Gestures.TapEventArgs e){
 			var x = e.Center.X;
 			var y = e.Center.Y;
 
-			//Another added control has been touched.
+			//The tap event was either directed towards another control or the menu was touched.
 			foreach (var child in layout.Children) {
 				if (child.Bounds.Contains (x, y) && child != MenuGrid) {
 					return;
@@ -200,21 +305,24 @@ namespace XamDesigner
 			MR.Gestures.StackLayout someView = new MR.Gestures.StackLayout() {
 				BackgroundColor=Color.Transparent};
 
-
+			//TODO: Find a better way than this ugly hack.
+			//Need to handle button case seperately for now
 			if (activeType == dict["Button"]){
 				var button = new Button (){ Text = "Button" };
 				button.Clicked += (haha, snap) => {
 					if (editMode && !menuVisible){
-						if (activeView != someView){
-							activeView = someView;
-						}
 
-						if (currAction == ACTION.DELETE) {
+
+						if (someView.Id == activeView.Id && currAction == ACTION.DELETE) {
 							DeleteControl (childToDelete: activeView);
+						}else if(someView.Id == activeView.Id && currAction == ACTION.COLOR) {
+							ColorControl(childToColor: button);
+						}else {
+							SetActiveView(someView);
 						}
 
 					}else if  (menuVisible){
-							MessagingCenter.Send<App, String> (App.Current as App, App.ToggleOptionsDrawer, App.ToggleOptionsDrawer);
+						ToggleMenu();
 					}
 
 				};
@@ -222,18 +330,17 @@ namespace XamDesigner
 
 
 			}else if (activeType == dict["Label"]){
-				someView.Children.Add(new Label (){ Text = "Label" });
+				someView.Children.Add(new Label (){ Text = "Label", HorizontalOptions = LayoutOptions.Fill,
+					VerticalOptions = LayoutOptions.Fill, HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center});
 			}else if (activeType == dict["Entry"]){
-				someView.Children.Add(new Entry (){ Text = "Entry" });
+				someView.Children.Add(new Entry (){ Text = "Entry", IsEnabled = false });
 			}else if (activeType == dict["Rectangle"]){
 				someView.Children.Add(new BoxView (){ BackgroundColor = Color.Yellow });
 			}
-			activeView = someView;
+			SetActiveView (someView);
 			someView.Tapped += (nice, man) => {
 				if (editMode && man.NumberOfTouches==1){
-					if (activeView != someView){
-						activeView = someView;
-					}
+					SetActiveView (someView);
 				}
 			};
 
@@ -245,10 +352,13 @@ namespace XamDesigner
 					y, AbsoluteLayout.AutoSize, AbsoluteLayout.AutoSize));
 
 			someView.Panning += (control, args) => {
-				if (editMode && currAction == ACTION.MOVE){
-					if (activeView != someView){
-						activeView = someView;
-					}
+
+				if (menuVisible){
+					ToggleMenu();
+				}
+
+				if (editMode && (currAction == ACTION.MOVE || currAction == ACTION.FREEFORM)){
+					SetActiveView(someView);
 
 					var x0 = someView.X + args.TotalDistance.X;
 					var y0 = someView.Y+ args.TotalDistance.Y;
@@ -260,6 +370,29 @@ namespace XamDesigner
 
 
 			layout.Children.Insert (0, someView);
+		}
+
+		public void ToggleEffect(StackLayout someView = null){
+
+			foreach (var view in layout.Children) {
+				if (view.GetType () == typeof(MR.Gestures.StackLayout)) {
+					while (view.Effects.Count > 0) {
+						view.Effects.RemoveAt (0);
+					}
+				}
+			}
+
+			if (someView != null) {
+				Effect BorderEffect = DependencyService.Get<Effect> (DependencyFetchTarget.NewInstance);
+				someView.Effects.Add (BorderEffect);
+			}
+		}
+
+		public void SetActiveView(StackLayout someView){
+			if (someView != null && (activeView == null || activeView.Id != someView.Id)){
+				activeView = someView;
+			}
+			ToggleEffect (someView);
 		}
 
 		bool HandleMenuGrid (MR.Gestures.TapEventArgs e){
@@ -274,12 +407,8 @@ namespace XamDesigner
 
 				for (int index =0; index < children.Count; index++) {
 					var child = children [index];
-
-					bool toggle = false;
-
-				
 					if (child.Bounds.Contains (transX, y)) {
-					    delegates [index] ();
+					    optionDelegates [index] (null);
 						child.BackgroundColor = tapOptionColor;
 
 					} else {
@@ -287,6 +416,7 @@ namespace XamDesigner
 					}
 
 				}
+				ToggleMenu ();
 				return true;
 			}
 
@@ -294,11 +424,18 @@ namespace XamDesigner
 		}
 
 		public void HandleControlManipulations(MR.Gestures.TapEventArgs e){
-			if (currAction == ACTION.ADD) {
+			if (currAction == ACTION.ADD || currAction == ACTION.FREEFORM) {
 				AddControl (e);
 			} else if (currAction == ACTION.DELETE) {
 				DeleteControl (e);
+			} else if (currAction == ACTION.COLOR) {
+				ColorControl (e);
 			}
+		}
+
+		public void ToggleMenu(){
+			var app = App.Current as App;
+			MessagingCenter.Send<App, String> (app, App.ToggleOptionsDrawer, App.ToggleOptionsDrawer);
 		}
 
 		public void HandleTapOnLayout(object sender, MR.Gestures.TapEventArgs e){
@@ -307,8 +444,7 @@ namespace XamDesigner
 			if (menuVisible) {
 				tappedOnMenu = HandleMenuGrid (e);
 				if (!tappedOnMenu) {
-					var app = App.Current as App;
-					MessagingCenter.Send<App, String> (app, App.ToggleOptionsDrawer, App.ToggleOptionsDrawer);
+					ToggleMenu ();
 					return;
 				}
 			}else if (editMode) {
@@ -316,6 +452,7 @@ namespace XamDesigner
 			}
 
 			}
+
 
 	}
 }

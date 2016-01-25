@@ -4,6 +4,7 @@ using System.Linq;
 
 using Foundation;
 using UIKit;
+using Xamarin.Forms;
 
 namespace XamDesigner.iOS
 {
@@ -19,6 +20,7 @@ namespace XamDesigner.iOS
 			Xamarin.Calabash.Start();
 			#endif
 			MR.Gestures.iOS.Settings.LicenseKey = "MYDE-VBMY-GKUK-U7T8-YDGV-W4GH-MEDC-M8NA-5ZQF-YN8A-CK63-MWPN-BT89";
+			DependencyService.Register<Effect, BorderEffect> ();
 			LoadApplication (new App ());
 
 			return base.FinishedLaunching (app, options);
