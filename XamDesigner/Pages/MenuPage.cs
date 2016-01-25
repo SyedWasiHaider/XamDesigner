@@ -5,9 +5,8 @@ namespace XamDesigner
 {
 	public class MenuPage: ContentPage {
 
-		private Command getCommand(string controlAssembleName){
+		private Command getCommand(){
 			var command = new Command ( (ok) => {
-				MessagingCenter.Send(this, App.ChangeControlMessage, controlAssembleName);
 				(App.Current.MainPage as MasterDetailPage).IsPresented = false;
 			});
 			return command;
@@ -20,9 +19,15 @@ namespace XamDesigner
 				Padding = new Thickness ( 0, Device.OnPlatform<int>( 20, 0, 0 ), 0, 0 ),
 			};
 
-			layout.Children.Add (new SlidingTrayButton ("New Project"));
-			layout.Children.Add (new SlidingTrayButton ("New Page"));
-			layout.Children.Add (new SlidingTrayButton ("Save Project"));
+			layout.Children.Add (new SlidingTrayButton ("Change Mode") {Command = new Command(()=>{
+				((App)App.Current).StartingPage.ToggleEditMode();
+				(App.Current.MainPage as MasterDetailPage).IsPresented = false;
+			})});
+
+			var genericCommand = getCommand ();
+			layout.Children.Add (new SlidingTrayButton ("New Project"){ Command = genericCommand});
+			layout.Children.Add (new SlidingTrayButton ("New Page"){ Command = genericCommand});
+			layout.Children.Add (new SlidingTrayButton ("Save Project"){Command = genericCommand});
 
 			Content = layout;
 			Title = "Controls";

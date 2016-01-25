@@ -34,9 +34,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SlidingTrayButton.cs" />
     <Compile Include="Extensions\EnumerableExtensions.cs" />
-    <Compile Include="Pages\MainPage.cs" />
     <Compile Include="Pages\MenuPage.cs" />
-    <Compile Include="Controls\MenuGrid.cs" />
+    <Compile Include="Controls\OptionsMenu.cs" />
+    <Compile Include="Pages\StartingPage.cs" />
+    <Compile Include="Controls\PropertyCell.cs" />
+    <Compile Include="Pages\EditPropertiesPage.cs" />
+    <Compile Include="Controls\PrototypeView.cs" />
+    <Compile Include="Pages\ColorPage.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <Import Project="..\packages\Xamarin.Forms.2.0.1.6498\build\portable-win+net45+wp80+win81+wpa81+MonoAndroid10+MonoTouch10+Xamarin.iOS10\Xamarin.Forms.targets" Condition="Exists('..\packages\Xamarin.Forms.2.0.1.6498\build\portable-win+net45+wp80+win81+wpa81+MonoAndroid10+MonoTouch10+Xamarin.iOS10\Xamarin.Forms.targets')" />

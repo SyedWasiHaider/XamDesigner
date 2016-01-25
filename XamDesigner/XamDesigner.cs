@@ -8,9 +8,9 @@ namespace XamDesigner
 {
 	public class App : Application
 	{
-		public const string ChangeControlMessage = "ChangeControlMessage";
 		public const string ToggleOptionsDrawer = "OpenOptionsDrawer";
 
+		public StartingPage StartingPage; 
 		static public Dictionary<string,string> SupportedTypes;
 		public App ()
 		{
@@ -28,16 +28,23 @@ namespace XamDesigner
 				SupportedTypes.Add (type.Name, type.AssemblyQualifiedName);
 			}
 
+
+
 			MainPage = new MasterDetailPage() { 
 				Master= new MenuPage() {Icon="hamburger.png", Title="wtf"}
-					, Detail = new NavigationPage(new MainPage() { Title="Edit Mode"}), IsGestureEnabled=false};
+					, Detail = new NavigationPage(StartingPage = new StartingPage () { Title = "Xamarin Designer" }), IsGestureEnabled=false};
+			AddOptionToolItem ();
+		}
+
+		public void AddOptionToolItem(){
 
 			ToolbarItem toolBarItem = null;
 			toolBarItem = new ToolbarItem ("Options", "", () => {
-				MessagingCenter.Send(this, ToggleOptionsDrawer, ToggleOptionsDrawer);
+				StartingPage.MenuGrid.ToggleMenu();
 			});
-			MainPage.ToolbarItems.Add (toolBarItem);
+			App.Current.MainPage.ToolbarItems.Add (toolBarItem);
 		}
+
 
 		protected override void OnStart ()
 		{

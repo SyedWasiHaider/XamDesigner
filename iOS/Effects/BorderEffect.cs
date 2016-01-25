@@ -15,7 +15,7 @@ namespace XamDesigner.iOS
 		{
 			if (this.Control != null) {
 					this.Control.Layer.BorderColor = UIColor.Red.CGColor;
-				this.Control.Layer.BorderWidth = 2;			
+				this.Control.Layer.BorderWidth = 2;
 			} 
 			else if (this.Container != null) {
 				this.Container.Layer.BorderColor = UIColor.Red.CGColor;
