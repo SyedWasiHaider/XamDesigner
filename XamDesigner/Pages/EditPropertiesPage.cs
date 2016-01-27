@@ -34,9 +34,10 @@ namespace XamDesigner
 			list.ItemTemplate = template;
 			list.ItemsSource = source;
 			Content = new StackLayout () {
-				Children = {list, SaveButton
+				Children = {new Label() { Text="Edit Properties" }, list, SaveButton
 					, CancelButton
-					 }
+					 },
+				Padding = new Thickness ( 0, Device.OnPlatform<int>( 20, 0, 0 ), 0, 0 ),
 			};
 
 			SaveButton.Clicked += async (sender, e) => {

@@ -17,24 +17,23 @@ namespace XamDesigner
 		PrototypeView protoTypePage;
 		public StartingPage(){
 		}
-
-		bool performingSetup = false;
+			
 		private void Setup(){
 			AddProtoTypePage ();
 			AddMenu ();
-			absoluteLayout = new MR.Gestures.AbsoluteLayout () {Children = {protoTypePage, MenuGrid} };
-			Content = absoluteLayout;
 		}
 
-		bool doOnce = true;
+		bool mainSetup = true;
 		protected override void OnAppearing ()
 		{
 			base.OnAppearing ();
-			if (doOnce) {
-				doOnce = false;
+			if (mainSetup) {
+				mainSetup = false;
 				Setup ();
+			} else {
+				AddMenu ();
 			}
-		}	
+		}
 
 		public void AddProtoTypePage(){
 			protoTypePage = new PrototypeView ();
@@ -49,6 +48,7 @@ namespace XamDesigner
 		public void AddMenu(){
 			MenuGrid = new OptionsMenu ();
 			MenuGrid.OptionsList = protoTypePage.options;
+			MenuGrid.ToggleAble = protoTypePage.toggleable;
 			AbsoluteLayout.SetLayoutFlags (MenuGrid,
 				AbsoluteLayoutFlags.PositionProportional);
 
@@ -58,6 +58,8 @@ namespace XamDesigner
 			MenuGrid.ItemTapped += (object sender, OptionsMenu.OptionTappedEventArgs e) => {
 				protoTypePage.ExecuteAction(e.Position);
 			};
+			absoluteLayout = new MR.Gestures.AbsoluteLayout () {Children = {protoTypePage, MenuGrid} };
+			Content = absoluteLayout;
 		}
 
 		public void ToggleEditMode(){
