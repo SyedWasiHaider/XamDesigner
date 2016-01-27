@@ -20,7 +20,10 @@ namespace XamDesigner
 				typeof(Button),
 				typeof(Entry),
 				typeof(Label),
-				typeof(Rectangle)
+				typeof(Switch),
+				typeof(BoxView),
+				typeof(Image),
+				typeof(ListView),
 			};
 
 			SupportedTypes = new Dictionary<string,string> ();
@@ -60,6 +63,7 @@ namespace XamDesigner
 		{
 			// Handle when your app resumes
 		}
+
 	}
 }
 

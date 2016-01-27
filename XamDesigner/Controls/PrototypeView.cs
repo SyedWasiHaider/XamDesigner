@@ -6,23 +6,26 @@ using System.Threading.Tasks;
 using System.Reflection;
 using System.Diagnostics;
 using System.Linq;
+using Plugin.Media;
+using Plugin.Media.Abstractions;
 
 namespace XamDesigner
 {
 	public class PrototypeView : MR.Gestures.ContentView
 	{
-		[FlagsAttribute] 
+		
 		enum ACTION {
-			ADD = 0, MOVE=1, RESIZE=2, FREEFORM=4 ,COLOR=8, DELETE=16, PROPERTIES = 32
-		}
+			MOVE, RESIZE, FREEFORM, DELETE,
+		} 
 
 		MR.Gestures.AbsoluteLayout layout = null;
 		string activeType;
 		Dictionary<string,string> dict;
 		bool editMode = true;
 		StackLayout activeView;
-		ACTION currAction = ACTION.ADD;
+		ACTION currAction = ACTION.FREEFORM;
 		public List <string> options;
+		public bool[] toggleable;
 		XamDesigner.EnumerableExtensions.GenericDelegate<object>[] optionDelegates;
 
 		public PrototypeView ()
@@ -32,46 +35,67 @@ namespace XamDesigner
 
 		public void ExecuteAction(int action){
 			optionDelegates[action] (null);
+			TogglePreviewEdit();
 		}
 
 		void Setup(){
 			dict = App.SupportedTypes;
-			options = new List<string> { "Add", "Move", "Resize", "Free Form", "Colors", "Delete", "Properties" };
+			options = new List<string> { "Add", "Move", "Resize", "Free Form", "Clone", "Colors", "Delete", "More" };
+			toggleable = new bool[options.Count];
+			for (int i = 0; i < toggleable.Count(); i++) {
+				toggleable[i] = false;
+			}
+
+			//Why? Why not!?
+			toggleable [options.IndexOf ("Move")] = 
+				toggleable [options.IndexOf ("Resize")] = 
+					toggleable [options.IndexOf ("Free Form")] = 
+						toggleable [options.IndexOf ("Delete")] = true;
+			
 			optionDelegates = new XamDesigner.EnumerableExtensions.GenericDelegate<object>[] {
 				async delegate {
-					currAction = ACTION.ADD;
-					var action = await App.Current.MainPage.DisplayActionSheet ("Pick a control and tap on the screen.", "Cancel", null, dict.Keys.ToArray<string>());
+					currAction = ACTION.FREEFORM;
+					var action = await App.Current.MainPage.DisplayActionSheet ("Pick a control to add.", "Cancel", null, dict.Keys.ToArray<string>());
 					if (action != null && dict.Keys.Contains(action)){
 						activeType = dict[action];
+						AddControl(Width/2, Height/2);
 					}
-					TogglePreviewEdit();
 				},
 				delegate {
 					currAction = ACTION.MOVE;
-					TogglePreviewEdit();
 				},
 				delegate {
 					currAction = ACTION.RESIZE;
-					TogglePreviewEdit();
-				},
-				async delegate {
-					currAction = ACTION.FREEFORM;
-					var action = await App.Current.MainPage.DisplayActionSheet ("Pick a control and tap on the screen.", "Cancel", null, dict.Keys.ToArray<string>());
-					if (action != null && dict.Keys.Contains(action)){
-						activeType = dict[action];
-					}
-					TogglePreviewEdit();
 				},
 				delegate {
-					currAction = ACTION.COLOR;
-					TogglePreviewEdit();
+					currAction = ACTION.FREEFORM;
+				},
+				delegate {
+					if (activeView == null){
+						App.Current.MainPage.DisplayAlert ("Woah There!", "You must select an element first.", "OK");
+					}else{
+						AddControl(Width/2, Height/2, activeView.Children[0]);
+					}
+					currAction = ACTION.FREEFORM;
+				},
+				delegate {
+					if (activeView == null){
+						App.Current.MainPage.DisplayAlert ("Woah There!", "You must select an element first.", "OK");
+					}else{
+						(App.Current.MainPage as MasterDetailPage).Detail.Navigation.PushModalAsync (new ColorPage (activeView.Children[0]));
+					}
+					currAction = ACTION.FREEFORM;
 				},
 				delegate {
 					currAction = ACTION.DELETE;
-					TogglePreviewEdit();
 				},
 				delegate {
-					currAction = ACTION.PROPERTIES;
+					if (activeView == null){
+						App.Current.MainPage.DisplayAlert ("Woah There!", "You must select an element first.", "OK");
+					}else{
+						(App.Current.MainPage as MasterDetailPage).Detail.Navigation.PushModalAsync(new EditPropertiesPage(activeView.Children[0]));
+					}
+					currAction = ACTION.FREEFORM;
 				}
 			};
 
@@ -80,7 +104,7 @@ namespace XamDesigner
 			layout.Tapped += HandleTapOnLayout;
 			layout.LongPressing += Layout_LongPressed;
 
-			double diffY = 0;
+
 			layout.Pinching += (sweet, cool) => {
 
 				if (editMode && activeView!=null && (currAction == ACTION.RESIZE || currAction == ACTION.FREEFORM)){
@@ -91,15 +115,7 @@ namespace XamDesigner
 					if (Math.Abs(finger1.X - finger2.X) > Math.Abs(finger1.Y - finger2.Y)){
 						actualView.WidthRequest = actualView.Width * cool.DeltaScale;
 					}else{
-						var newDiff = Math.Abs(finger1.Y - finger2.Y);
-
-						if (newDiff > diffY){
-							actualView.HeightRequest = actualView.Height * 1.0 + (diffY/newDiff);
-						}else{
-							actualView.HeightRequest = actualView.Height * 1.0 - (diffY/newDiff);
-						}
-						diffY = newDiff;
-
+						actualView.HeightRequest = actualView.Height * cool.DeltaScale;
 					}
 
 				}
@@ -178,82 +194,113 @@ namespace XamDesigner
 				children.Remove (childToDelete);
 			}
 		}
-
-		public void PropColorControl(MR.Gestures.TapEventArgs e = null, View childToColor = null){
-
-			if (e != null) {
-				var x = e.Center.X;
-				var y = e.Center.Y;
-				var children = layout.Children;
-				foreach (var child in children) {
-					if (child.Bounds.Contains (x, y) && child.GetType() == typeof(MR.Gestures.StackLayout)) {
-						SetActiveView (child as StackLayout);
-						childToColor = (child as StackLayout).Children [0];
-						break;
-					}
-				}
-			}
-
-
-			if (childToColor != null) {
-				if (currAction == ACTION.COLOR) {
-					(App.Current.MainPage as MasterDetailPage).Detail.Navigation.PushModalAsync (new ColorPage (childToColor));
-				} else if (currAction == ACTION.PROPERTIES) {
-					(App.Current.MainPage as MasterDetailPage).Detail.Navigation.PushModalAsync(new EditPropertiesPage(activeView.Children[0]));
-				}
-			}
-		}
-
+			
 		public void AddControl(MR.Gestures.TapEventArgs e){
 			var x = e.Center.X;
 			var y = e.Center.Y;
-
 			//The tap event was either directed towards another control or the menu was touched.
 			foreach (var child in layout.Children) {
 				if (child.Bounds.Contains (x, y)) {
 					return;
 				}
 			}
+			AddControl (x, y);
+		}
+
+
+		public async void AddControl(double x, double y, View viewToAdd = null){
+
+			bool clone = false;
+			if (viewToAdd != null) {
+				activeType = viewToAdd.GetType ().AssemblyQualifiedName;
+				clone = true;
+			}
 
 			MR.Gestures.StackLayout someView = new MR.Gestures.StackLayout() {
 				BackgroundColor=Color.Transparent};
 
+
+
 			//TODO: Find a better way than this ugly hack.
 			//Need to handle button case seperately for now
-			if (activeType == dict["Button"]){
+			if (activeType == dict ["Button"]) {
 				var button = new Button (){ Text = "Button" };
-				button.Clicked += (haha, snap) => {
-					if (editMode){
 
+				button.Clicked += (haha, snap) => {
+					if (editMode) {
 
 						if (someView.Id == activeView.Id && currAction == ACTION.DELETE) {
 							DeleteControl (childToDelete: activeView);
-						}else if(someView.Id == activeView.Id && (currAction == ACTION.COLOR || currAction == ACTION.PROPERTIES)) {
-							PropColorControl(childToColor: button);
-						}else {
-							SetActiveView(someView);
+						} else {
+							SetActiveView (someView);
 						}
 
 					}
 
 				};
-				someView.Children.Add(button);
+				someView.Children.Add (button);
 
 
-			}else if (activeType == dict["Label"]){
-				someView.Children.Add(new Label (){ Text = "Label", HorizontalOptions = LayoutOptions.Fill,
-					VerticalOptions = LayoutOptions.Fill, HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center});
-			}else if (activeType == dict["Entry"]){
-				someView.Children.Add(new Entry (){ Text = "Entry", IsEnabled = false });
-			}else if (activeType == dict["Rectangle"]){
-				someView.Children.Add(new BoxView (){ BackgroundColor = Color.Yellow });
+			} else if (activeType == dict ["Label"]) {
+				someView.Children.Add (new Label () {
+					Text = "Label",
+					HorizontalOptions = LayoutOptions.Fill,
+					VerticalOptions = LayoutOptions.Fill,
+					HorizontalTextAlignment = TextAlignment.Center,
+					VerticalTextAlignment = TextAlignment.Center
+				});
+			} else if (activeType == dict ["Entry"]) {
+				someView.Children.Add (new Entry (){ Text = "Entry", IsEnabled = false });
+			} else if (activeType == dict ["BoxView"]) {
+				someView.Children.Add (new BoxView (){ BackgroundColor = Color.Blue });
+			} else if (activeType == dict ["Switch"]) {
+				someView.Children.Add (new Switch ());
+			} else if (activeType == dict ["Image"]) {
+				if (clone && ((Image)viewToAdd).Source != null) {
+					someView.Children.Add (new Image ());
+				} else if (CrossMedia.Current.IsCameraAvailable) {
+					var imageView = new Image ();
+					var file = await CrossMedia.Current.TakePhotoAsync (new StoreCameraMediaOptions () {
+						Directory = "XamDesigner",
+						Name = imageView.Id.ToString () + "quickie.jpg"
+					});
+
+					imageView.Source = ImageSource.FromStream (() => {
+						var stream = file.GetStream ();
+						return stream;
+					});
+					someView.Children.Add (imageView);
+				} else {
+					App.Current.MainPage.DisplayAlert ("No Camera or Image", "There is no camera or photo available", "Ok");
+					return;
+				}
+			} else if (activeType == dict ["ListView"]) {
+				someView.Children.Add (new ListView { ItemsSource = new [] { "Item1", "Item2", "Item3" } });
 			}
+
+
 			SetActiveView (someView);
 			someView.Tapped += (nice, man) => {
 				if (editMode && man.NumberOfTouches==1){
 					SetActiveView (someView);
 				}
 			};
+
+			if (clone) {
+				View v = someView.Children [0];
+				var properties = viewToAdd.GetType ().GetRuntimeProperties ();
+				foreach (var prop in properties)
+				{
+					if (prop.CanRead && prop.CanWrite) {
+						try{
+							var value = prop.GetValue (viewToAdd);
+							prop.SetValue (v, value);
+						}catch(Exception e){
+							Debug.WriteLine ("lolz you can't set the following property:" + prop);
+						}
+					}
+				}
+			}
 
 			AbsoluteLayout.SetLayoutFlags (someView,
 				AbsoluteLayoutFlags.None);
@@ -275,8 +322,7 @@ namespace XamDesigner
 				}
 			};
 
-
-			layout.Children.Insert (0, someView);
+			layout.Children.Add (someView);
 		}
 
 		public void ToggleEffect(StackLayout someView = null){
@@ -303,12 +349,8 @@ namespace XamDesigner
 		}
 
 		public void HandleControlManipulations(MR.Gestures.TapEventArgs e){
-			if (currAction == ACTION.ADD || currAction == ACTION.FREEFORM) {
-				AddControl (e);
-			} else if (currAction == ACTION.DELETE) {
+			if (currAction == ACTION.DELETE) {
 				DeleteControl (e);
-			} else if (currAction == ACTION.COLOR || currAction == ACTION.PROPERTIES) {
-				PropColorControl (e);
 			}
 		}
 

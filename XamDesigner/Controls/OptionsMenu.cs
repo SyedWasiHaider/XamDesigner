@@ -17,6 +17,8 @@ namespace XamDesigner
 			set { SetValue (OptionsListProperty, value); }
 		}
 
+		public bool[] ToggleAble;
+
 		public static readonly BindableProperty IsMenuVisibleProperty =
 			BindableProperty.Create<OptionsMenu, bool> (p => p.IsMenuVisible, false);
 
@@ -37,14 +39,13 @@ namespace XamDesigner
 		public OptionsMenu ()
 		{
 			IsMenuVisible = false;
-			this.Tapped += OptionsMenu_Tapped;
 		}
 
 		protected override void OnPropertyChanged (string propertyName)
 		{
 			base.OnPropertyChanged (propertyName);
 			Debug.WriteLine ("PropertyChanged was: " + propertyName);
-			if  (propertyName == "Parent") {
+			if (propertyName == "Parent") {
 				Setup ();
 			}
 		}
@@ -99,7 +100,7 @@ namespace XamDesigner
 			ColumnDefinitions.Add (new ColumnDefinition ());
 			for (int i = 0; i < numButtons; i++) {
 				RowDefinitions.Add (new RowDefinition ());
-				var innerGrid = new MR.Gestures.Grid () { BackgroundColor = i== 0 ? tappedColor : untappedColor };
+				var innerGrid = new MR.Gestures.Grid () { BackgroundColor = untappedColor };
 				innerGrid.ColumnDefinitions.Add (new ColumnDefinition ());
 				innerGrid.RowDefinitions.Add (new RowDefinition ());
 				var box = new MR.Gestures.BoxView ();
@@ -109,16 +110,29 @@ namespace XamDesigner
 				innerGrid.Children.Add (box,0,0);
 				innerGrid.Children.Add (lol,0,0);
 				IdPositionDictionary.Add (innerGrid.Id, i);
-				innerGrid.Tapped+= (object sender, TapEventArgs e) => {
+				innerGrid.Tapped+= 
+					(object sender, TapEventArgs e) => {
+					var pos = IdPositionDictionary[((MR.Gestures.Grid)sender).Id];
 					if (ItemTapped != null){
-						ItemTapped(this, new OptionTappedEventArgs(){ Position = IdPositionDictionary[((MR.Gestures.Grid)sender).Id] });
+						ItemTapped(this, new OptionTappedEventArgs(){ Position = pos });
 					}
 					Children.DoForEach(delegate(object grid){
 						((MR.Gestures.Grid)grid).BackgroundColor = untappedColor; 
 					});
 					innerGrid.BackgroundColor = tappedColor;
+
+					if (ToggleAble[pos]){
+						ToggleMenu();
+					}else{
+						innerGrid.Animate("wtifisthisanyway", new Animation(delegate(double obj) {
+							innerGrid.Scale = obj;
+						}, 0.90,1), easing: Easing.SpringOut, length:200, finished: 
+						delegate{
+							ToggleMenu();
+							innerGrid.BackgroundColor = untappedColor;
+						});
+					}
 				
-					ToggleMenu();
 				};
 				Children.Add (innerGrid, 0, i);
 			}
@@ -126,11 +140,6 @@ namespace XamDesigner
 			HeightRequest = (Double)(Parent.GetValue (HeightProperty));
 			WidthRequest = (Double)(HeightRequest)/ numButtons;
 			TranslationX = WidthRequest;
-		}
-
-		public void OptionsMenu_Tapped (object sender, TapEventArgs e)
-		{
-			
 		}
 
 		public void ToggleMenu(){
