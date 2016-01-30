@@ -18,12 +18,17 @@ namespace XamDesigner
 			MOVE, RESIZE, FREEFORM, DELETE,
 		} 
 
+		public enum MODE {
+			PREVIEW, EDIT
+		}
+
+		public string navControlId;
 		MR.Gestures.AbsoluteLayout layout = null;
 		string activeType;
 		Dictionary<string,string> dict;
-		bool editMode = true;
 		StackLayout activeView;
 		ACTION currAction = ACTION.FREEFORM;
+		public MODE currMode = MODE.EDIT;
 		public List <string> options;
 		public bool[] toggleable;
 		XamDesigner.EnumerableExtensions.GenericDelegate<object>[] optionDelegates;
@@ -35,7 +40,7 @@ namespace XamDesigner
 
 		public void ExecuteAction(int action){
 			optionDelegates[action] (null);
-			TogglePreviewEdit();
+			((App)App.Current).StartingPage.ToggleMode(true);
 		}
 
 		void Setup(){
@@ -71,7 +76,7 @@ namespace XamDesigner
 					currAction = ACTION.FREEFORM;
 				},
 				delegate {
-					if (activeView == null){
+					if (activeView == null || activeView.Children.Count == 0){
 						App.Current.MainPage.DisplayAlert ("Woah There!", "You must select an element first.", "OK");
 					}else{
 						AddControl(Width/2, Height/2, activeView.Children[0]);
@@ -107,7 +112,7 @@ namespace XamDesigner
 
 			layout.Pinching += (sweet, cool) => {
 
-				if (editMode && activeView!=null && (currAction == ACTION.RESIZE || currAction == ACTION.FREEFORM)){
+				if (currMode == MODE.EDIT && activeView!=null && (currAction == ACTION.RESIZE || currAction == ACTION.FREEFORM)){
 					Debug.WriteLine("hey hey hey" + activeView.Bounds.Center);
 					var actualView = activeView.Children.FirstOrDefault();
 					var finger1 = cool.Touches[0];
@@ -124,9 +129,16 @@ namespace XamDesigner
 			Content = layout;
 		}
 
+		void Layout_DoubleTapped (object sender, MR.Gestures.TapEventArgs e)
+		{
+			if (currMode == MODE.EDIT && currAction == ACTION.FREEFORM) {
+							(App.Current.MainPage as MasterDetailPage).Detail.Navigation.PushModalAsync(new EditPropertiesPage(activeView.Children[0]));
+			}
+		}
+
 		void Layout_LongPressed (object sender, MR.Gestures.LongPressEventArgs e)
 		{
-			if (editMode && currAction == ACTION.FREEFORM) {
+			if (currMode == MODE.EDIT && currAction == ACTION.FREEFORM) {
 
 				var x = e.Center.X;
 				var y = e.Center.Y;
@@ -145,21 +157,31 @@ namespace XamDesigner
 			}
 		}
 
-		public void TogglePreviewEdit(bool forceEdit = true){
-			editMode = !editMode || forceEdit;
-			if (!editMode){
+		public void SetMode(MODE mode){
+			currMode = mode;
+
+
+			if (currMode == MODE.PREVIEW){
 				layout.Children.DoForEach (delegate (object layout) {
-					var element = (layout as StackLayout).Children [0];
-					if (element.GetType() == typeof(Entry)){
-						(element as Entry).IsEnabled = true;
+					var container = (layout as StackLayout).Children;
+					if (container.Count < 1){
+						return;
+					}
+					var element =  container[0];
+					if (element.GetType() == typeof(Entry) || element.GetType() == typeof(Button)){
+						element.IsEnabled = true;
 					}
 				}, typeof(MR.Gestures.StackLayout));
 				ToggleEffect ();
 			}else{
 				layout.Children.DoForEach (delegate (object layout) {
-					var element = (layout as StackLayout).Children [0];
-					if (element.GetType() == typeof(Entry)){
-						(element as Entry).IsEnabled = false;
+					var container = (layout as StackLayout).Children;
+					if (container.Count < 1){
+						return;
+					}
+					var element =  container[0];					
+					if (element.GetType() == typeof(Entry) || element.GetType() == typeof(Button)){
+						element.IsEnabled = false;
 					}
 				}, typeof(MR.Gestures.StackLayout));
 			}
@@ -192,6 +214,7 @@ namespace XamDesigner
 
 			if (childToDelete != null) {
 				children.Remove (childToDelete);
+				activeView = null;
 			}
 		}
 			
@@ -226,18 +249,18 @@ namespace XamDesigner
 			if (activeType == dict ["Button"]) {
 				var button = new Button (){ Text = "Button" };
 
+				button.IsEnabled = false;
 				button.Clicked += (haha, snap) => {
-					if (editMode) {
-
+					if (currMode == MODE.EDIT) {
 						if (someView.Id == activeView.Id && currAction == ACTION.DELETE) {
 							DeleteControl (childToDelete: activeView);
 						} else {
 							SetActiveView (someView);
 						}
-
 					}
 
 				};
+
 				someView.Children.Add (button);
 
 
@@ -256,14 +279,35 @@ namespace XamDesigner
 			} else if (activeType == dict ["Switch"]) {
 				someView.Children.Add (new Switch ());
 			} else if (activeType == dict ["Image"]) {
+
+				var cameraAvailable = CrossMedia.Current.IsCameraAvailable;
+				var pickerAvailable = CrossMedia.Current.IsPickPhotoSupported;
 				if (clone && ((Image)viewToAdd).Source != null) {
 					someView.Children.Add (new Image ());
-				} else if (CrossMedia.Current.IsCameraAvailable) {
+				} else if (CrossMedia.Current.IsCameraAvailable || CrossMedia.Current.IsPickPhotoSupported) {
+
+					var cameraOptions = new List<string> ();
+					if (pickerAvailable) {
+						cameraOptions.Add ("Gallery");
+					}
+					if (cameraAvailable) {
+						cameraOptions.Add ("Camera");
+					}
+
+					var action = await App.Current.MainPage.DisplayActionSheet ("Please select image source.", "Cancel", null, cameraOptions.ToArray());
+
+
 					var imageView = new Image ();
-					var file = await CrossMedia.Current.TakePhotoAsync (new StoreCameraMediaOptions () {
-						Directory = "XamDesigner",
-						Name = imageView.Id.ToString () + "quickie.jpg"
-					});
+					MediaFile file = null; 
+
+					if (action == "Gallery") {
+						file = await CrossMedia.Current.PickPhotoAsync ();
+					} else if (action == "Camera") {
+						file = await CrossMedia.Current.TakePhotoAsync (new StoreCameraMediaOptions () {
+							Directory = "XamDesigner",
+							Name = imageView.Id.ToString () + "quickie.jpg"
+						});
+					}
 
 					imageView.Source = ImageSource.FromStream (() => {
 						var stream = file.GetStream ();
@@ -276,15 +320,42 @@ namespace XamDesigner
 				}
 			} else if (activeType == dict ["ListView"]) {
 				someView.Children.Add (new ListView { ItemsSource = new [] { "Item1", "Item2", "Item3" } });
+			} else if (activeType == dict ["Navigation"]) {
+
+				if (activeView == null) {
+					App.Current.MainPage.DisplayAlert ("No control picker", "You must select a control that will change pages", "Ok");
+				} else {
+					var action = await App.Current.MainPage.DisplayActionSheet ("Navigation", "Cancel", null, "New Page", "Go Back");
+
+					if (action == "Go Back") {
+						((Button)activeView.Children [0]).Clicked += (sender, e) => {
+							if (currMode == MODE.PREVIEW) {
+								((App)App.Current).StartingPage.NavigateBack();
+							}
+						};
+					} else if (action == "New Page"){
+	
+						((Button)activeView.Children [0]).Clicked += (sender, e) => {
+							if (currMode == MODE.PREVIEW) {
+								((App)App.Current).StartingPage.SetupProtoTypePage (((Button)sender).Id.ToString());
+							}
+						};
+						((App)App.Current).StartingPage.SetupProtoTypePage (((Button)activeView.Children [0]).Id.ToString());
+
+					}
+				}
 			}
 
 
 			SetActiveView (someView);
 			someView.Tapped += (nice, man) => {
-				if (editMode && man.NumberOfTouches==1){
+				if (currMode == MODE.EDIT && man.NumberOfTouches==1){
 					SetActiveView (someView);
 				}
 			};
+
+			someView.DoubleTapped += Layout_DoubleTapped;
+
 
 			if (clone) {
 				View v = someView.Children [0];
@@ -311,7 +382,7 @@ namespace XamDesigner
 
 			someView.Panning += (control, args) => {
 
-				if (editMode && (currAction == ACTION.MOVE || currAction == ACTION.FREEFORM)){
+				if (currMode == MODE.EDIT && (currAction == ACTION.MOVE || currAction == ACTION.FREEFORM)){
 					SetActiveView(someView);
 
 					var x0 = someView.X + args.TotalDistance.X;
@@ -320,6 +391,11 @@ namespace XamDesigner
 						new Rectangle (x0,
 							y0, AbsoluteLayout.AutoSize, AbsoluteLayout.AutoSize));
 				}
+
+				if (((App)(App.Current)).StartingPage.MenuGrid.IsMenuVisible){
+					((App)(App.Current)).StartingPage.MenuGrid.ToggleMenu();
+				}
+
 			};
 
 			layout.Children.Add (someView);
@@ -351,11 +427,13 @@ namespace XamDesigner
 		public void HandleControlManipulations(MR.Gestures.TapEventArgs e){
 			if (currAction == ACTION.DELETE) {
 				DeleteControl (e);
+			} else if (((App)(App.Current)).StartingPage.MenuGrid.IsMenuVisible) {
+				((App)(App.Current)).StartingPage.MenuGrid.ToggleMenu ();
 			}
 		}
 
 		public void HandleTapOnLayout(object sender, MR.Gestures.TapEventArgs e){
-			if (editMode) {
+			if (currMode == MODE.EDIT) {
 				HandleControlManipulations (e);
 			}
 

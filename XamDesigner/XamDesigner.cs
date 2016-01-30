@@ -12,9 +12,13 @@ namespace XamDesigner
 
 		public StartingPage StartingPage; 
 		static public Dictionary<string,string> SupportedTypes;
+
+
 		public App ()
 		{
 			// The root page of your application
+
+
 
 			var types = new [] {
 				typeof(Button),
@@ -23,14 +27,14 @@ namespace XamDesigner
 				typeof(Switch),
 				typeof(BoxView),
 				typeof(Image),
-				typeof(ListView),
+				typeof(ListView)
 			};
 
 			SupportedTypes = new Dictionary<string,string> ();
 			foreach (var type in types) {
 				SupportedTypes.Add (type.Name, type.AssemblyQualifiedName);
 			}
-
+			SupportedTypes.Add ("Navigation", typeof(PrototypeView).AssemblyQualifiedName);
 
 
 			MainPage = new MasterDetailPage() { 

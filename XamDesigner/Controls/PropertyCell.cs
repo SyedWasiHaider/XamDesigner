@@ -17,8 +17,8 @@ namespace XamDesigner
 			wrapper.ColumnDefinitions.Add (new ColumnDefinition ());
 			wrapper.RowDefinitions.Add (new RowDefinition ());
 
-			propertyName = new Label (){Text="Property", HorizontalOptions=LayoutOptions.CenterAndExpand};
-			propertyValue = new Entry () { Text = "Value", HorizontalOptions=LayoutOptions.CenterAndExpand };
+			propertyName = new Label (){Text="Property", HorizontalOptions=LayoutOptions.FillAndExpand};
+			propertyValue = new Entry () {Text = "Value", HorizontalOptions=LayoutOptions.FillAndExpand };
 			propertyValue.TextChanged += (sender, e) => {
 				((XamDesigner.EditPropertiesPage.PropertyTuple)(BindingContext)).value = e.NewTextValue;
 			};

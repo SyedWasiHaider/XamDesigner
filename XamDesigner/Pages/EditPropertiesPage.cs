@@ -21,9 +21,28 @@ namespace XamDesigner
 			var list = new ListView () {
 			};
 
+			var supportedProps = new Type[] {
+				typeof(int),
+				typeof(sbyte),
+				typeof(byte),
+				typeof(short),
+				typeof(ushort),
+				typeof(int),
+				typeof(uint),
+				typeof(long),
+				typeof(ulong),
+				typeof(float),
+				typeof(double),
+				typeof(decimal),
+				typeof(string),
+				typeof(bool),
+	
+			};
+
 			var source = new List<PropertyTuple> ();
 			foreach (var property in properties) {
-				if (property.CanWrite && property.CanRead && property.GetValue(viewToEdit) != null) {
+				if (property.CanWrite && property.CanRead && property.GetValue(viewToEdit) != null && 
+					supportedProps.Contains(property.PropertyType)) {
 					source.Add (new PropertyTuple () { name = property.Name, value = property.GetValue (viewToEdit).ToString () });
 				}
 			}
@@ -37,7 +56,7 @@ namespace XamDesigner
 				Children = {new Label() { Text="Edit Properties" }, list, SaveButton
 					, CancelButton
 					 },
-				Padding = new Thickness ( 0, Device.OnPlatform<int>( 20, 0, 0 ), 0, 0 ),
+				Padding = new Thickness ( 10, Device.OnPlatform<int>( 20, 0, 0 ), 10, 0 ),
 			};
 
 			SaveButton.Clicked += async (sender, e) => {

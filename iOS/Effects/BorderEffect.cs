@@ -11,15 +11,18 @@ namespace XamDesigner.iOS
 		{
 		}
 
+		public CGColor BorderColor = UIColor.LightGray.CGColor;
+		public nfloat BorderWidth = 2;
+
 		protected override void OnAttached ()
 		{
 			if (this.Control != null) {
-					this.Control.Layer.BorderColor = UIColor.Red.CGColor;
-				this.Control.Layer.BorderWidth = 2;
+				this.Control.Layer.BorderColor = BorderColor;
+				this.Control.Layer.BorderWidth = BorderWidth;
 			} 
 			else if (this.Container != null) {
-				this.Container.Layer.BorderColor = UIColor.Red.CGColor;
-				this.Container.Layer.BorderWidth = 2;	
+				this.Container.Layer.BorderColor = BorderColor;
+				this.Container.Layer.BorderWidth = BorderWidth;	
 			}
 		}
 

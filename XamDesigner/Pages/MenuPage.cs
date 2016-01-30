@@ -20,7 +20,7 @@ namespace XamDesigner
 			};
 
 			layout.Children.Add (new SlidingTrayButton ("Change Mode") {Command = new Command(()=>{
-				((App)App.Current).StartingPage.ToggleEditMode();
+				((App)App.Current).StartingPage.ToggleMode();
 				(App.Current.MainPage as MasterDetailPage).IsPresented = false;
 			})});
 
