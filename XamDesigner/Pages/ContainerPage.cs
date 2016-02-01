@@ -1,5 +1,4 @@
 ﻿using System;
-
 using Xamarin.Forms;
 using System.Diagnostics;
 using System.Reflection;
@@ -7,16 +6,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections;
+using MODE = XamDesigner.PrototypePageViewModel.MODE;
+using ACTION = XamDesigner.PrototypePageViewModel.ACTION;
 
 namespace XamDesigner
 {
-	public class StartingPage : ContentPage
+	public class ContainerPage : ContentPage
 	{
 		MR.Gestures.AbsoluteLayout absoluteLayout;
 		public OptionsMenu MenuGrid;
-		Stack<PrototypeView> protoTypePages = new Stack<PrototypeView>();
-		public PrototypeView activePage;
-		public StartingPage(){
+		public PrototypeView protoTypePage;
+		bool isFirstPage = false;
+		public ContainerPage(bool firstPage = false){
+			isFirstPage = firstPage;
 		}
 			
 		private void Setup(){
@@ -42,34 +44,25 @@ namespace XamDesigner
 			if (absoluteLayout.Children.Count > 1) {
 
 				var BorderEffect = DependencyService.Get<Effect> ();
-				protoTypePages.Peek ().Effects.Clear ();
-				protoTypePages.Peek ().Effects.Add(BorderEffect);
+				protoTypePage.Effects.Clear ();
+				protoTypePage.Effects.Add(BorderEffect);
 				new Animation (delegate(double obj) {
-					protoTypePages.Peek().TranslationX = obj;
+					protoTypePage.TranslationX = obj;
 				}, 0, -1*Width).Commit (this, "something", easing: Easing.Linear, finished: delegate {
-					absoluteLayout.Children.Remove(protoTypePages.Peek ());
-					protoTypePages.Peek ().Effects.RemoveAt(0);
+					absoluteLayout.Children.Remove(protoTypePage);
+					protoTypePage.Effects.RemoveAt(0);
 				});
 			}
 		}
 
 		public void SetupProtoTypePage(string id = null){			
 
-
-			PrototypeView protoTypePage = null;
-			if (id != null) {
-				protoTypePage = (from page in protoTypePages
-				            where page.navControlId == id
-				            select page).FirstOrDefault ();
-			} 
-
 			if (protoTypePage == null){
-				protoTypePage = new PrototypeView () { BackgroundColor = Color.White } ;
+				protoTypePage = new PrototypeView () { 
+					BindingContext = new PrototypePageViewModel (),
+					BackgroundColor = Color.White } ;
 				protoTypePage.navControlId = id;
-				protoTypePages.Push (protoTypePage);
 			}
-
-			activePage = protoTypePage;
 
 			AbsoluteLayout.SetLayoutFlags (protoTypePage,
 				AbsoluteLayoutFlags.PositionProportional);
@@ -96,13 +89,15 @@ namespace XamDesigner
 				absoluteLayout.Children.Add(protoTypePage);
 			}
 
+			if (isFirstPage) {
+				protoTypePage.ViewModel.AddNewMenuButtonForPage (this);
+			}
 		}
 
 		public void SetupMenu(){
-			var protoTypePage = protoTypePages.Peek ();
 			MenuGrid = new OptionsMenu ();
-			MenuGrid.OptionsList = protoTypePage.options;
-			MenuGrid.ToggleAble = protoTypePage.toggleable;
+			MenuGrid.OptionsList = ((PrototypePageViewModel)protoTypePage.BindingContext).MenuOptions;
+		
 			AbsoluteLayout.SetLayoutFlags (MenuGrid,
 				AbsoluteLayoutFlags.PositionProportional);
 
@@ -110,24 +105,10 @@ namespace XamDesigner
 				new Rectangle (1f,
 					0f, AbsoluteLayout.AutoSize, Height));
 			MenuGrid.ItemTapped += (object sender, OptionsMenu.OptionTappedEventArgs e) => {
-				activePage.ExecuteAction(e.Position);
+				protoTypePage.ViewModel.ExecuteMenuAction(e.Position);
 			};
 			absoluteLayout.Children.Add (MenuGrid);
-		}
 
-		public void ToggleMode(bool forceEdit = false){
-
-			PrototypeView.MODE modeToSet = activePage.currMode;
-			if (!forceEdit) {
-				modeToSet = modeToSet == PrototypeView.MODE.EDIT ? PrototypeView.MODE.PREVIEW : PrototypeView.MODE.EDIT;
-			} else {
-				modeToSet = PrototypeView.MODE.EDIT;
-			}
-
-
-			foreach (var page in protoTypePages) {
-				page.SetMode (modeToSet);
-			}
 		}
 	}
 }

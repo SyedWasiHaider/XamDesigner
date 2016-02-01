@@ -35,8 +35,7 @@ namespace XamDesigner
 				typeof(double),
 				typeof(decimal),
 				typeof(string),
-				typeof(bool),
-	
+				typeof(bool)
 			};
 
 			var source = new List<PropertyTuple> ();

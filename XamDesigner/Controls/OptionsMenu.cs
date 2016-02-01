@@ -3,6 +3,8 @@ using MR.Gestures;
 using Xamarin.Forms;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Xamarin.BrandColors;
 
 namespace XamDesigner
 {
@@ -10,10 +12,10 @@ namespace XamDesigner
 	{
 
 		public static readonly BindableProperty OptionsListProperty =
-			BindableProperty.Create<OptionsMenu, List <string>> (p => p.OptionsList, new List<string>());
+			BindableProperty.Create<OptionsMenu, List <MenuOptionModel>> (p => p.OptionsList, new List<MenuOptionModel>());
 
-		public List <string> OptionsList {
-			get { return (List <string>)GetValue (OptionsListProperty); }
+		public List <MenuOptionModel> OptionsList {
+			get { return (List <MenuOptionModel>)GetValue (OptionsListProperty); }
 			set { SetValue (OptionsListProperty, value); }
 		}
 
@@ -73,6 +75,8 @@ namespace XamDesigner
 
 
 
+		Color untappedColor = XamarinColor.DarkerBlue.getColor ();
+		Color tappedColor = XamarinColor.DarkBlue.getColor ();
 		void Setup(){
 
 			if (OptionsList.Count <= 0) {
@@ -93,8 +97,8 @@ namespace XamDesigner
 			}
 
 			var numButtons = OptionsList.Count;
-			var untappedColor = Color.FromRgb (20, 60, 80);
-			var tappedColor = Color.FromRgb(40, 80, 100);
+			HeightRequest = (Double)(Parent.GetValue (HeightProperty));
+			WidthRequest = (Double)(HeightRequest)/ numButtons;
 			Children.Clear ();
 			RowSpacing = 0;
 			ColumnDefinitions.Add (new ColumnDefinition ());
@@ -104,31 +108,37 @@ namespace XamDesigner
 				innerGrid.ColumnDefinitions.Add (new ColumnDefinition ());
 				innerGrid.RowDefinitions.Add (new RowDefinition ());
 				var box = new MR.Gestures.BoxView ();
-				var lol = new MR.Gestures.Label (){ TextColor = Color.White, Text = OptionsList[i], 
+				var lol = new MR.Gestures.Label (){ TextColor = Color.White, Text = OptionsList[i].Title, 
 					HorizontalOptions = LayoutOptions.Fill,
 					VerticalOptions = LayoutOptions.Fill, HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center};
 				innerGrid.Children.Add (box,0,0);
 				innerGrid.Children.Add (lol,0,0);
+				innerGrid.TranslationX = WidthRequest;
 				IdPositionDictionary.Add (innerGrid.Id, i);
 				innerGrid.Tapped+= 
-					(object sender, TapEventArgs e) => {
+					async (object sender, TapEventArgs e) => {
 					var pos = IdPositionDictionary[((MR.Gestures.Grid)sender).Id];
 					if (ItemTapped != null){
 						ItemTapped(this, new OptionTappedEventArgs(){ Position = pos });
 					}
-					Children.DoForEach(delegate(object grid){
-						((MR.Gestures.Grid)grid).BackgroundColor = untappedColor; 
-					});
-					innerGrid.BackgroundColor = tappedColor;
 
-					if (ToggleAble[pos]){
-						ToggleMenu();
+
+					if (OptionsList[pos].IsToggleable){
+
+						if (!OptionsList[pos].IsToggled && OptionsList[pos].UnToggleOthers){
+							SetToggledAll(false);
+						}
+
+						SetToggled(pos, !OptionsList[pos].IsToggled);
+						await ShowHideMenu();
 					}else{
+						SetToggledAll(false);
+						innerGrid.BackgroundColor = tappedColor;
 						innerGrid.Animate("wtifisthisanyway", new Animation(delegate(double obj) {
 							innerGrid.Scale = obj;
 						}, 0.90,1), easing: Easing.SpringOut, length:200, finished: 
-						delegate{
-							ToggleMenu();
+						async delegate{
+							await ShowHideMenu();
 							innerGrid.BackgroundColor = untappedColor;
 						});
 					}
@@ -137,25 +147,43 @@ namespace XamDesigner
 				Children.Add (innerGrid, 0, i);
 			}
 
-			HeightRequest = (Double)(Parent.GetValue (HeightProperty));
-			WidthRequest = (Double)(HeightRequest)/ numButtons;
-			TranslationX = WidthRequest;
+			SetToggled (1, true);
+			SetToggled (2, true);
 		}
 
-		public void ToggleMenu(){
-			if (IsMenuVisible){
+		public void SetToggled(int index, bool toggle){
+			((MR.Gestures.Grid)Children [index]).BackgroundColor = toggle ? tappedColor : untappedColor;
+			OptionsList [index].IsToggled = toggle;
+		}
 
-				var an = new Animation( delegate(double obj) {
-					TranslationX = obj;
-				}, 0, Width);
+		public void SetToggledAll(bool toggle){
+			Children.DoForEach(delegate(object grid, int index){
+				SetToggled(index, toggle);
+			});
+		}
 
-				an.Commit(this, "menugrid", 10, 200);
-			}else{
-				var an = new Animation( delegate(double obj) {
-					TranslationX = obj;
-				},TranslationX, 0);
+		bool isAnimating = false;
+		public async Task ShowHideMenu(){
 
-				an.Commit(this, "menugrid", easing: Easing.BounceOut);
+			int index = 0;
+			int completed = 0;
+			foreach (var innerGrid in Children) {
+				if (IsMenuVisible) {
+
+					var an = new Animation (delegate(double obj) {
+						innerGrid.TranslationX = obj;
+					}, 0, innerGrid.Width);
+
+					an.Commit (innerGrid, "menugrid", 10, 200);
+				} else {
+					var an = new Animation (delegate(double obj) {
+						innerGrid.TranslationX = obj;
+					}, innerGrid.TranslationX, 0);
+
+					await Task.Delay(index * 13);
+					index++;
+					an.Commit (innerGrid, "menugrid"+innerGrid.Id, easing: Easing.SinIn, length:90, rate:13);
+				}
 			}
 			IsMenuVisible = !IsMenuVisible;
 		}

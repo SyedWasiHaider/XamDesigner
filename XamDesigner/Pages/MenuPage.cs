@@ -1,5 +1,7 @@
 ﻿using System;
 using Xamarin.Forms;
+using Xamarin.BrandColors;
+using System.Linq;
 
 namespace XamDesigner
 {
@@ -12,26 +14,29 @@ namespace XamDesigner
 			return command;
 		}
 
-		public MenuPage( ) {
+		public void AddButton(SlidingTrayButton button){
+			layout.Children.Add (button);
+		}
 
-			var dict = App.SupportedTypes;
-			var layout = new StackLayout {
+		public void AddButton(string title, Command action){
+			layout.Children.Add (new SlidingTrayButton (title){ Command = action});
+		}
+
+		StackLayout layout;
+		public MenuPage( ) {
+			
+			layout = new StackLayout {
 				Padding = new Thickness ( 0, Device.OnPlatform<int>( 20, 0, 0 ), 0, 0 ),
 			};
 
 			layout.Children.Add (new SlidingTrayButton ("Change Mode") {Command = new Command(()=>{
-				((App)App.Current).StartingPage.ToggleMode();
+				((App)App.Current).StartingPage.protoTypePage.ViewModel.ToggleMode();
 				(App.Current.MainPage as MasterDetailPage).IsPresented = false;
 			})});
-
-			var genericCommand = getCommand ();
-			layout.Children.Add (new SlidingTrayButton ("New Project"){ Command = genericCommand});
-			layout.Children.Add (new SlidingTrayButton ("New Page"){ Command = genericCommand});
-			layout.Children.Add (new SlidingTrayButton ("Save Project"){Command = genericCommand});
-
+				
 			Content = layout;
 			Title = "Controls";
-			BackgroundColor = Color.Gray.WithLuminosity( 0.2 );
+			BackgroundColor = XamarinColor.DarkerBlue.getColor ();
 			Icon = Device.OS == TargetPlatform.iOS ? "slideout.png" : null;
 		}
 	}
