@@ -67,23 +67,31 @@ namespace XamDesigner
 						var stackLayout = ActiveView as StackLayout;
 						protoView.AddControl(protoView.Width/2, protoView.Height/2, stackLayout.Children[0]);
 					}
+					TopPage.MenuGrid.SetToggled(1,true);
+					TopPage.MenuGrid.SetToggled(2,true);
 				})},
 
 				new MenuOptionModel(){ Title = "Colors", Command = new Command(async () => {
-					CurrentAction = ACTION.NONE;
 					if (ActiveView == null){
 						await DisplayMessageAlert ("Woah There!", "You must select an element first.", "OK");
 					}else{
 						await Navigation.PushModalAsync (new ColorPage (ActiveView.Children[0]));
 					}
+					TopPage.MenuGrid.SetToggled(1,true);
+					TopPage.MenuGrid.SetToggled(2,true);
 				})},
 
 				new MenuOptionModel(){ Title = "Delete", IsToggleable=true, Command = new Command(() => {
 					CurrentAction = ACTION.DELETE;
-				}), UnToggleOthers = true, UnToggleCommand = new Command(()=>{})},
+					TopPage.MenuGrid.SetToggled(1,false);
+					TopPage.MenuGrid.SetToggled(2,false);
+				}), UnToggleOthers = true, UnToggleCommand = new Command(()=>{
+					CurrentAction = ACTION.FREEFORM;
+					TopPage.MenuGrid.SetToggled(1,true);
+					TopPage.MenuGrid.SetToggled(2,true);})},
 
 				new MenuOptionModel(){ Title = "More", Command = new Command(async () => {
-					CurrentAction = ACTION.NONE;
+					CurrentAction = ACTION.FREEFORM;
 					if (ActiveView == null){
 						await DisplayMessageAlert ("Woah There!", "You must select an element first.", "OK");
 					}else{

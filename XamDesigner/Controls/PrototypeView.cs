@@ -51,6 +51,7 @@ namespace XamDesigner
 					var actualView = ((StackLayout)ViewModel.ActiveView).Children.FirstOrDefault();
 					var finger1 = cool.Touches[0];
 					var finger2 = cool.Touches[1];
+
 					if (Math.Abs(finger1.X - finger2.X) > Math.Abs(finger1.Y - finger2.Y)){
 						actualView.WidthRequest = actualView.Width * cool.DeltaScale;
 					}else{
@@ -285,7 +286,7 @@ namespace XamDesigner
 				new Rectangle (x,
 					y, AbsoluteLayout.AutoSize, AbsoluteLayout.AutoSize));
 
-			someView.Panning += async (control, args) => {
+			someView.Panning +=  (control, args) => {
 
 				if (ViewModel.CurrentMode == MODE.EDIT && (ViewModel.CurrentAction == ACTION.MOVE || ViewModel.CurrentAction == ACTION.FREEFORM)){
 					SetActiveView(someView);
@@ -298,7 +299,7 @@ namespace XamDesigner
 				}
 
 				if (ViewModel.TopPage.MenuGrid.IsMenuVisible){
-					await ViewModel.TopPage.MenuGrid.ShowHideMenu();
+					 ViewModel.TopPage.MenuGrid.ShowHideMenu();
 				}
 
 			};

@@ -162,27 +162,26 @@ namespace XamDesigner
 			});
 		}
 
-		bool isAnimating = false;
 		public async Task ShowHideMenu(){
 
 			int index = 0;
-			int completed = 0;
 			foreach (var innerGrid in Children) {
 				if (IsMenuVisible) {
-
+					this.IsEnabled = false;
 					var an = new Animation (delegate(double obj) {
 						innerGrid.TranslationX = obj;
 					}, 0, innerGrid.Width);
 
 					an.Commit (innerGrid, "menugrid", 10, 200);
 				} else {
+					this.IsEnabled = true;
 					var an = new Animation (delegate(double obj) {
 						innerGrid.TranslationX = obj;
 					}, innerGrid.TranslationX, 0);
 
-					await Task.Delay(index * 13);
+					await Task.Delay(index * 5);
 					index++;
-					an.Commit (innerGrid, "menugrid"+innerGrid.Id, easing: Easing.SinIn, length:90, rate:13);
+					an.Commit (innerGrid, "menugrid"+innerGrid.Id, easing: Easing.SinIn, length:80, rate:13);
 				}
 			}
 			IsMenuVisible = !IsMenuVisible;
