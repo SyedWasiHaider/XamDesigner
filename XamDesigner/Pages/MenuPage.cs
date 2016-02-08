@@ -33,6 +33,11 @@ namespace XamDesigner
 				((App)App.Current).StartingPage.protoTypePage.ViewModel.ToggleMode();
 				(App.Current.MainPage as MasterDetailPage).IsPresented = false;
 			})});
+
+			layout.Children.Add (new SlidingTrayButton ("Save") {Command = new Command(()=>{
+				((App)App.Current).StartingPage.protoTypePage.SaveViewToStorage("page1");
+				(App.Current.MainPage as MasterDetailPage).IsPresented = false;
+			})});
 				
 			Content = layout;
 			Title = "Controls";

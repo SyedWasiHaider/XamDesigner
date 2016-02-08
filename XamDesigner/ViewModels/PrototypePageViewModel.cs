@@ -13,7 +13,8 @@ namespace XamDesigner
 		public PrototypePageViewModel ()
 		{
 			ActiveType = typeof(Button).AssemblyQualifiedName;
-
+			CurrentMode = MODE.EDIT;
+			CurrentAction = ACTION.FREEFORM;
 			MenuOptions = new List<MenuOptionModel>(){
 
 				new MenuOptionModel(){ Title = "Add", Command = new Command<PrototypeView>(async (protoView) => {

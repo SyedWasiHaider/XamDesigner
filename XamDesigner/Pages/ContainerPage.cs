@@ -57,11 +57,14 @@ namespace XamDesigner
 
 		public void SetupProtoTypePage(string id = null){			
 
-			if (protoTypePage == null){
+			if (protoTypePage == null) {
 				protoTypePage = new PrototypeView () { 
 					BindingContext = new PrototypePageViewModel (),
-					BackgroundColor = Color.White } ;
+					BackgroundColor = Color.White
+				};
 				protoTypePage.navControlId = id;
+			} else {
+				return;
 			}
 
 			AbsoluteLayout.SetLayoutFlags (protoTypePage,

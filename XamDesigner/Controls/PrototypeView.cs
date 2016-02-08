@@ -10,19 +10,21 @@ using Plugin.Media;
 using Plugin.Media.Abstractions;
 using MODE = XamDesigner.PrototypePageViewModel.MODE;
 using ACTION = XamDesigner.PrototypePageViewModel.ACTION;
+using XamDesigner.Models;
+using Plugin.Settings;
+using Newtonsoft.Json;
 
 namespace XamDesigner
 {
 	public class PrototypeView : MR.Gestures.ContentView
 	{
-		
-	
 		public PrototypePageViewModel ViewModel;
 		public string navControlId;
 		MR.Gestures.AbsoluteLayout layout = null;
 		Dictionary<string,string> dict;
 		public List <string> options;
 		public bool[] toggleable;
+		public string pageId;
 
 		public PrototypeView ()
 		{
@@ -34,6 +36,14 @@ namespace XamDesigner
 			if (BindingContext != null) {
 				ViewModel = (PrototypePageViewModel)BindingContext;
 				Setup ();
+			}
+		}
+
+		protected override void OnPropertyChanged (string propertyName)
+		{
+			base.OnPropertyChanged (propertyName);
+			if (propertyName == HeightProperty.PropertyName) {
+				LoadViewFromStorage ();
 			}
 		}
 
@@ -233,6 +243,9 @@ namespace XamDesigner
 							Directory = "XamDesigner",
 							Name = imageView.Id.ToString () + "quickie.jpg"
 						});
+					} else {
+						someView.Children.Add (imageView);
+						return;
 					}
 
 					imageView.Source = ImageSource.FromStream (() => {
@@ -345,6 +358,125 @@ namespace XamDesigner
 				HandleControlManipulations (e);
 			}
 
+		}
+
+
+		public void LoadViewFromStorage(){
+			pageId = "page1";
+			if (pageId == null) {
+				return;
+			}
+			var lol = CrossSettings.Current.GetValueOrDefault<String> (pageId, "");
+			if (!string.IsNullOrEmpty (lol)) {
+				var controls = JsonConvert.DeserializeObject<List<ControlModel>> (lol);	
+				foreach (var controlModel in controls) {
+					ViewModel.ActiveType = controlModel.ControlType.AssemblyQualifiedName;
+					AddControl (controlModel.x * Width, controlModel.y * Height);
+					var actualView = ViewModel.ActiveView.Children [0];
+					var properties = GetViewProperties (actualView);
+					foreach (var propKVP in controlModel.Properties){
+						var propInfo = properties.Find ((delegate(PropertyInfo obj) {
+							return obj.Name == propKVP.Key;
+						}));
+
+
+						try{
+								propInfo.SetValue (actualView, propKVP.Value);
+						}
+						catch(Exception hahahahahah){
+							Debug.WriteLine ("Bro come on " + hahahahahah.ToString ());
+						}
+					}
+
+					foreach (var colorKVP in controlModel.ColorProperies){
+						var propInfo = properties.Find ((delegate(PropertyInfo obj) {
+							return obj.Name == colorKVP.Key;
+						}));
+
+
+						try{
+							var colorTuple = colorKVP.Value as ControlModel.ColorTuple;
+							propInfo.SetValue (actualView, Color.FromRgb(colorTuple.r, colorTuple.g, colorTuple.b));
+						}
+						catch(Exception hahahahahah){
+							Debug.WriteLine ("Bro come on " + hahahahahah.ToString ());
+						}
+					}
+
+
+					actualView.HeightRequest = ViewModel.ActiveView.HeightRequest = controlModel.Height * Height;
+					actualView.WidthRequest = ViewModel.ActiveView.WidthRequest = controlModel.Width * Width;
+
+
+
+				}
+			}
+		}
+
+
+		public void SaveViewToStorage(string pageId){
+			var controls = new List<ControlModel> ();	
+			foreach (var child in layout.Children) {
+				var actualChild = (child as StackLayout).Children [0];
+				var model = new ControlModel ();
+				model.ControlType = actualChild.GetType ();
+				model.x = child.X / Width;
+				model.y = child.Y / Height;
+				model.Width = child.Width / Width;
+				model.Height = child.Height / Height;
+				var properties = GetViewProperties (actualChild);
+
+				foreach (var property in properties) {
+					if (property.PropertyType == typeof(Color)) {
+						var color = (Color)property.GetValue (actualChild);
+						//Necessary because these are -1 for some stupid reason by default.
+						if (color.R < 0 || color.B < 0 || color.G < 0) {
+							continue;
+						}
+						model.ColorProperies.Add(property.Name, new ControlModel.ColorTuple {r = color.R, g = color.G, b = color.B});
+					} else {
+						model.Properties.Add (property.Name, property.GetValue (actualChild));
+					}
+				}
+
+				controls.Add (model);
+			}
+			CrossSettings.Current.AddOrUpdateValue<String> (pageId, JsonConvert.SerializeObject(controls));
+		}
+
+		public List<PropertyInfo>  GetViewProperties(View v){
+			List<PropertyInfo> result = new List<PropertyInfo> ();
+			var properties = v.GetType ().GetRuntimeProperties ();
+			var supportedProps = new Type[] {
+				typeof(int),
+				typeof(sbyte),
+				typeof(byte),
+				typeof(short),
+				typeof(ushort),
+				typeof(int),
+				typeof(uint),
+				typeof(long),
+				typeof(ulong),
+				typeof(float),
+				typeof(double),
+				typeof(decimal),
+				typeof(string),
+				typeof(bool),
+				typeof(Color)
+			};
+
+			var restrictedProps = new String[] {
+				View.HeightProperty.PropertyName,
+				View.WidthProperty.PropertyName
+			};
+
+			foreach (var property in properties) {
+				if (property.CanWrite && property.CanRead && property.GetValue (v) != null &&
+				    supportedProps.Contains (property.PropertyType) && !restrictedProps.Contains (property.Name)) {
+					result.Add (property);
+				}
+			}
+			return result;
 		}
 
 	}
